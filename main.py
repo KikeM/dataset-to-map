@@ -30,20 +30,15 @@ def generate_random_distance_matrix(n):
 
 
 def generate_random_dataset(n_stocks=10):
-    # Set the random seed for reproducibility
-    np.random.seed(42)
+    np.random.seed(42)  # For reproducibility
 
-    # Numerical features
-    volatility = np.random.rand(n_stocks)  # Volatility as a fraction
-    volume_of_trades = np.random.randint(
-        1000, 10000, size=n_stocks
-    )  # Volume of trades
-    returns = (
-        np.random.randn(n_stocks) * 0.05
-    )  # Returns, centered around 0 with some deviation
-    number_of_mentions_in_twitter = np.random.randint(
-        0, 500, size=n_stocks
-    )  # Number of mentions in Twitter
+    # Initialize empty lists to store the data
+    volatility, volume_of_trades, returns, number_of_mentions_in_twitter = (
+        [],
+        [],
+        [],
+        [],
+    )
     names_list = [names.get_full_name() for _ in range(n_stocks)]
     names_list[0] = "Bitcoin"
 
@@ -51,7 +46,48 @@ def generate_random_dataset(n_stocks=10):
     stock_types = ["tech", "finance", "health"]
     types = np.random.choice(stock_types, size=n_stocks)
 
-    # Create a DataFrame
+    # Base values for each type
+    base_values = {
+        "tech": {
+            "volatility": 0.3,
+            "volumeoftrades": 5000,
+            "return": 0.02,
+            "numberofmentionsintwitter": 250,
+        },
+        "finance": {
+            "volatility": 0.2,
+            "volumeoftrades": 3000,
+            "return": 0.01,
+            "numberofmentionsintwitter": 150,
+        },
+        "health": {
+            "volatility": 0.4,
+            "volumeoftrades": 4000,
+            "return": 0.03,
+            "numberofmentionsintwitter": 200,
+        },
+    }
+
+    # Generate features with variations based on type
+    for stock_type in types:
+        base = base_values[stock_type]
+        volatility.append(
+            base["volatility"] + np.random.rand() * 0.1 - 0.05
+        )  # +/- 0.05 variation
+        volume_of_trades.append(
+            int(base["volumeoftrades"] + np.random.randint(-1000, 1000))
+        )
+        returns.append(
+            base["return"] + np.random.randn() * 0.01
+        )  # +/- 0.01 variation
+        number_of_mentions_in_twitter.append(
+            int(
+                base["numberofmentionsintwitter"]
+                + np.random.randint(-100, 100)
+            )
+        )
+
+    # Create the DataFrame
     stocks_data = pd.DataFrame(
         {
             "name": names_list,
@@ -126,7 +162,7 @@ if __name__ == "__main__":
     # Create dataset
     rprint("[bold]Stocks Dataset[/bold]")
 
-    n_stocks = 40
+    n_stocks = 25
     stocks_data = generate_random_dataset(n_stocks)
     rprint("Stocks Data:\n", stocks_data)
 
@@ -174,6 +210,9 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
 
     ax.scatter(points[:, 0], points[:, 1])
+
+    # Highlight the Bitcoin point
+    ax.scatter(0, 0, color="red", label="Bitcoin")
 
     ax.grid(True)
 
