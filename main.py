@@ -1,11 +1,14 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import names
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from adjustText import adjust_text
 from rich import print as rprint
 from sklearn.manifold import MDS
-from sklearn.preprocessing import StandardScaler
-import names
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 def generate_random_distance_matrix(n):
@@ -157,33 +160,60 @@ def generate_distance_matrix(data, categorical_columns):
     return distance_matrix
 
 
+def load_seedtag_dataset():
+
+    path = Path("dataset.csv")
+    dataset = pd.read_csv(path, sep=",", index_col=0)
+    dataset = dataset.dropna(subset="WSFJ Score")
+    rprint(dataset)
+
+    dataset["LoE"] = dataset.filter(regex="LoE*").sum(axis=1)
+    dataset = dataset.drop(columns=["LoE Backend", "LoE Data", "LoE MLOps"])
+
+    columns = dataset.columns
+    rprint(columns)
+    rprint(dataset)
+
+    return dataset
+
+
 if __name__ == "__main__":
 
     # Create dataset
-    rprint("[bold]Stocks Dataset[/bold]")
+    rprint("[bold]Dataset[/bold]")
 
-    n_stocks = 25
-    stocks_data = generate_random_dataset(n_stocks)
-    rprint("Stocks Data:\n", stocks_data)
+    # n_stocks = 25
+    # dataset = generate_random_dataset(n_stocks)
+    # rprint("Stocks Data:\n", dataset)
 
-    # Example usage with our stocks data
+    # # Example usage with our stocks data
+    # numerical_columns = [
+    #     "volatility",
+    #     "volumeoftrades",
+    #     "return",
+    #     "numberofmentionsintwitter",
+    # ]
+
+    dataset = load_seedtag_dataset()
+
     numerical_columns = [
-        "volatility",
-        "volumeoftrades",
-        "return",
-        "numberofmentionsintwitter",
+        "Business Value",
+        "Time Criticality",
+        "Risk Reduction",
+        "WSFJ Score",
+        "LoE",
     ]
 
-    normalised_stocks_data = stocks_data.copy()
-    scaler = StandardScaler()
-    normalised_stocks_data[numerical_columns] = scaler.fit_transform(
-        stocks_data[numerical_columns]
+    normalised_dataset = dataset.copy()
+    scaler = MinMaxScaler()
+    normalised_dataset[numerical_columns] = scaler.fit_transform(
+        dataset[numerical_columns]
     )
 
-    categorical_columns = ["type"]
-    _stocks_data = normalised_stocks_data.drop(columns=["name"])
+    categorical_columns = []
+    _dataset = normalised_dataset.drop(columns=["Description"])
     distance_matrix = generate_distance_matrix(
-        _stocks_data,
+        _dataset,
         categorical_columns,
     )
     rprint(distance_matrix)
@@ -204,16 +234,27 @@ if __name__ == "__main__":
 
     rprint("[bold]Plotting[/bold]")
     # Translate points so that Bitcoin point (index 0) is at the origin
-    bitcoin_point = points[0]  # Coordinates of the Bitcoin point
-    points = points - bitcoin_point  # Translate all points
+    # bitcoin_point = points[0]  # Coordinates of the Bitcoin point
+    # points = points - bitcoin_point  # Translate all points
 
     fig, ax = plt.subplots()
 
     ax.scatter(points[:, 0], points[:, 1])
 
-    # Highlight the Bitcoin point
-    ax.scatter(0, 0, color="red", label="Bitcoin")
+    # Include the name
+    point_names = dataset.index
+    texts = []
+    for i, name in enumerate(point_names):
+
+        text = plt.text(
+            points[i, 0], points[i, 1], name, ha="center", va="center"
+        )
+
+        texts.append(text)
 
     ax.grid(True)
+    ax.set_title("Martell Opportunities (WSFJ Methodology)")
+    plt.tight_layout()
+    adjust_text(texts, pull_threshold=10)
 
     plt.savefig("output.png")
