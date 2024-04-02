@@ -164,56 +164,27 @@ def generate_distance_matrix(data, categorical_columns=[]):
     return distance_matrix
 
 
-def load_martell_dataset():
+def load_dataset(path) -> pd.DataFrame:
 
-    path = Path("martell.csv")
-    dataset = pd.read_csv(path, sep=",", index_col=0)
-    dataset = dataset.dropna(subset="WSFJ Score")
-    rprint(dataset)
-
-    dataset["LoE"] = dataset.filter(regex="LoE*").sum(axis=1)
-    dataset = dataset.drop(columns=["LoE Backend", "LoE Data", "LoE MLOps"])
-
-    columns = dataset.columns
-    rprint("\n[bold]Clean Dataset[/bold]\n")
-    rprint(dataset)
-
-    return dataset, columns
-
-
-def load_lannister_dataset(cols_to_drop: list[str]):
-
-    path = Path("lannister.csv")
     dataset = pd.read_csv(path, sep=",", index_col=0)
     rprint(dataset)
 
-    dataset = dataset.drop(columns=cols_to_drop)
+    # Populate domain if not present
+    if "domain" not in dataset.columns:
+        dataset["domain"] = "squad"
 
-    columns = dataset.columns
-    rprint("\n[bold]Clean Dataset[/bold]\n")
-    rprint(dataset)
-
-    return dataset, columns
+    return dataset
 
 
 def main(
-    which: str = "lannister",
+    path: Path,
     scaling: str = "minmax",
-    cols_to_drop: list[str] = ["Notes", "Description"],
     png_name: str = "output.png",
 ):
 
     # Create dataset
     rprint("\n[bold]Dataset[/bold]\n")
-
-    if which == "lannister":
-        dataset, numerical_columns = load_lannister_dataset(
-            cols_to_drop=cols_to_drop
-        )
-    elif which == "martell":
-        dataset, numerical_columns = load_martell_dataset(
-            cols_to_drop=cols_to_drop
-        )
+    dataset = load_dataset(path)
 
     if scaling == "std":
         scaler = StandardScaler()
@@ -222,14 +193,16 @@ def main(
     else:
         scaler = PassthroughScaler()
 
-    normalised_dataset = dataset.copy()
-    normalised_dataset[numerical_columns] = scaler.fit_transform(
-        normalised_dataset[numerical_columns]
-    )
+    for col in dataset.columns:
+        if col == "domain":
+            continue
+        dataset[col] = scaler.fit_transform(dataset[[col]])
 
     rprint("\n[bold]Normalised Dataset[/bold]\n")
-    rprint(normalised_dataset)
-    distance_matrix = generate_distance_matrix(normalised_dataset)
+    rprint(dataset)
+    distance_matrix = generate_distance_matrix(
+        dataset, categorical_columns=["domain"]
+    )
 
     rprint("\n[bold]MDS projection[/bold]\n")
     embedding = MDS(
@@ -264,6 +237,7 @@ def main(
 
         texts.append(text)
 
+    which = path.stem
     ax.set_title(f"{which.title()} Opportunities (WSFJ Methodology)")
 
     # Make the x and y axes 20% larger
