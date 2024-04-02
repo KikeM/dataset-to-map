@@ -4,7 +4,7 @@ import pandas as pd
 from rich import print as rprint
 from thefuzz.process import extract
 
-choices = [
+CHOICES = [
     "businessValue",
     "timeCriticality",
     "riskReduction",
@@ -14,6 +14,15 @@ choices = [
     "notes",
     "observations",
     "name",
+]
+
+DIMENSIONS = [
+    "name",
+    "businessValue",
+    "timeCriticality",
+    "riskReduction",
+    "levelOfEffort",
+    "wsfj",
 ]
 
 
@@ -31,7 +40,7 @@ def rename_columns(dataset: pd.DataFrame, threshold: int):
     mapping = {}
     for column in dataset.columns:
         _input = process_string(column)
-        new_column = extract(_input, choices, limit=1)
+        new_column = extract(_input, CHOICES, limit=1)
         value, score = new_column[0]
         if score < threshold:
             rprint(
@@ -98,6 +107,8 @@ def main(
     dataset = drop_rows_cols(dataset)
 
     dataset = dataset.sort_values(by="wsfj", ascending=False)
+
+    dataset = dataset[DIMENSIONS]
 
     rprint("\n[bold]Dataset Clean[/bold]\n")
     rprint(dataset)
