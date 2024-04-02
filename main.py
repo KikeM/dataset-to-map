@@ -4,11 +4,15 @@ import matplotlib.pyplot as plt
 import names
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from adjustText import adjust_text
 from rich import print as rprint
 from sklearn.manifold import MDS
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+
+class PassthroughScaler:
+    def fit_transform(self, data):
+        return data
 
 
 def generate_random_distance_matrix(n):
@@ -133,7 +137,7 @@ def compute_row_distance(row1, row2, categorical_columns):
     return np.sqrt(distance)
 
 
-def generate_distance_matrix(data, categorical_columns):
+def generate_distance_matrix(data, categorical_columns=[]):
     """
     Generates a distance matrix for a given dataset, considering both numerical and categorical features.
 
@@ -160,9 +164,9 @@ def generate_distance_matrix(data, categorical_columns):
     return distance_matrix
 
 
-def load_seedtag_dataset():
+def load_martell_dataset():
 
-    path = Path("dataset.csv")
+    path = Path("martell.csv")
     dataset = pd.read_csv(path, sep=",", index_col=0)
     dataset = dataset.dropna(subset="WSFJ Score")
     rprint(dataset)
@@ -171,60 +175,63 @@ def load_seedtag_dataset():
     dataset = dataset.drop(columns=["LoE Backend", "LoE Data", "LoE MLOps"])
 
     columns = dataset.columns
-    rprint(columns)
+    rprint("\n[bold]Clean Dataset[/bold]\n")
     rprint(dataset)
 
-    return dataset
+    return dataset, columns
 
 
-if __name__ == "__main__":
+def load_lannister_dataset(cols_to_drop: list[str]):
+
+    path = Path("lannister.csv")
+    dataset = pd.read_csv(path, sep=",", index_col=0)
+    rprint(dataset)
+
+    dataset = dataset.drop(columns=cols_to_drop)
+
+    columns = dataset.columns
+    rprint("\n[bold]Clean Dataset[/bold]\n")
+    rprint(dataset)
+
+    return dataset, columns
+
+
+def main(
+    which: str = "lannister",
+    scaling: str = "minmax",
+    cols_to_drop: list[str] = ["Notes", "Description"],
+    png_name: str = "output.png",
+):
 
     # Create dataset
-    rprint("[bold]Dataset[/bold]")
+    rprint("\n[bold]Dataset[/bold]\n")
 
-    # n_stocks = 25
-    # dataset = generate_random_dataset(n_stocks)
-    # rprint("Stocks Data:\n", dataset)
+    if which == "lannister":
+        dataset, numerical_columns = load_lannister_dataset(
+            cols_to_drop=cols_to_drop
+        )
+    elif which == "martell":
+        dataset, numerical_columns = load_martell_dataset(
+            cols_to_drop=cols_to_drop
+        )
 
-    # # Example usage with our stocks data
-    # numerical_columns = [
-    #     "volatility",
-    #     "volumeoftrades",
-    #     "return",
-    #     "numberofmentionsintwitter",
-    # ]
-
-    dataset = load_seedtag_dataset()
-
-    numerical_columns = [
-        "Business Value",
-        "Time Criticality",
-        "Risk Reduction",
-        "WSFJ Score",
-        "LoE",
-    ]
+    if scaling == "std":
+        scaler = StandardScaler()
+    elif scaling == "minmax":
+        scaler = MinMaxScaler()
+    else:
+        scaler = PassthroughScaler()
 
     normalised_dataset = dataset.copy()
-    scaler = MinMaxScaler()
     normalised_dataset[numerical_columns] = scaler.fit_transform(
-        dataset[numerical_columns]
+        normalised_dataset[numerical_columns]
     )
 
-    categorical_columns = []
-    _dataset = normalised_dataset.drop(columns=["Description"])
-    distance_matrix = generate_distance_matrix(
-        _dataset,
-        categorical_columns,
-    )
-    rprint(distance_matrix)
+    rprint("\n[bold]Normalised Dataset[/bold]\n")
+    rprint(normalised_dataset)
+    distance_matrix = generate_distance_matrix(normalised_dataset)
 
-    # Example usage
-    # rprint("[bold]Distance Matrix[/bold]")
-    # n = 100
-    # distance_matrix = generate_random_distance_matrix(n)
-    # rprint("Distance Matrix:\n", distance_matrix)
-
-    rprint("[bold]MDS projection[/bold]")
+    rprint("\n[bold]MDS projection[/bold]\n")
     embedding = MDS(
         n_components=2,
         normalized_stress="auto",
@@ -232,12 +239,8 @@ if __name__ == "__main__":
     )
     points = embedding.fit_transform(distance_matrix)
 
-    rprint("[bold]Plotting[/bold]")
-    # Translate points so that Bitcoin point (index 0) is at the origin
-    # bitcoin_point = points[0]  # Coordinates of the Bitcoin point
-    # points = points - bitcoin_point  # Translate all points
-
-    fig, ax = plt.subplots()
+    rprint("\n[bold]Plotting[/bold]\n")
+    _, ax = plt.subplots()
 
     ax.scatter(points[:, 0], points[:, 1])
 
@@ -246,15 +249,34 @@ if __name__ == "__main__":
     texts = []
     for i, name in enumerate(point_names):
 
+        # Pick randomly between left or right
+        choices = ["left", "right"]
+        ha = np.random.choice(choices)
+
         text = plt.text(
-            points[i, 0], points[i, 1], name, ha="center", va="center"
+            points[i, 0],
+            points[i, 1],
+            name,
+            ha=ha,
+            va="baseline",
+            fontsize=7,
         )
 
         texts.append(text)
 
-    ax.grid(True)
-    ax.set_title("Martell Opportunities (WSFJ Methodology)")
-    plt.tight_layout()
-    adjust_text(texts, pull_threshold=10)
+    ax.set_title(f"{which.title()} Opportunities (WSFJ Methodology)")
 
-    plt.savefig("output.png")
+    # Make the x and y axes 20% larger
+    margin = 0.2
+    ax.set_xlim(ax.get_xlim()[0] - margin, ax.get_xlim()[1] + margin)
+    ax.set_ylim(ax.get_ylim()[0] - margin, ax.get_ylim()[1] + margin)
+
+    # Remove numbers from the axes, keep the grid
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.grid(True)
+
+    plt.tight_layout()
+    adjust_text(texts, pull_threshold=1)
+
+    plt.savefig(png_name)
