@@ -1,3 +1,15 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "adjustText",
+#   "matplotlib",
+#   "pandas",
+#   "scikit-learn",
+#   "thefuzz",
+#   "typer",
+# ]
+# ///
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -259,3 +271,6 @@ def represent(
     adjust_text(texts, pull_threshold=1)
 
     plt.savefig(png_name)
+
+if __name__ == "__main__":
+    app()
